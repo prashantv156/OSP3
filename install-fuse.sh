@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd ../
 echo "Collecting fuse 2.9.7"
 wget https://github.com/libfuse/libfuse/releases/download/fuse-2.9.7/fuse-2.9.7.tar.gz
 tar -xvzf fuse-2.9.7.tar.gz
