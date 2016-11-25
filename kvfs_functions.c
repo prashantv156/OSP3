@@ -25,6 +25,27 @@
 // Prototypes for all these functions, and the C-style comments,
 // come from /usr/include/fuse.h
 //
+static void kvfs_fullpath(char fpath[PATH_MAX], const char *path)
+{
+	char* root_dir	= str2md5("/",1);
+	if(strcmp(path, root_dir) == 0)
+	{
+		strcpy(fpath, KVFS_DATA->rootdir);
+		log_msg(" accessing root...");
+		return ;
+	}
+	else
+	{
+		log_msg(" is not root..");
+	}
+    	strcpy(fpath, KVFS_DATA->rootdir);
+	strncat(fpath, "/", 1);
+    	strncat(fpath, path, PATH_MAX); // ridiculously long paths will
+    
+	log_msg("    kvfs_fullpath:  rootdir = \"%s\", path = \"%s\", fpath = \"%s\"\n",
+            KVFS_DATA->rootdir, path, fpath);
+}
+
 /** Get file attributes.
  *
  * Similar to stat().  The 'st_dev' and 'st_blksize' fields are
@@ -34,11 +55,15 @@
 int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 {
 	int res = 0;
+	char fullpath[PATH_MAX];
 	log_msg("\nkvfs_getattr_impl(path=\"%s\", statbuf=0x%08x)\n", path, statbuf);
-        res = lstat(path, statbuf);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fullpath, path);
+	res = lstat(fullpath, statbuf);
+    if (res < 0){
+	log_msg("Error in getattr");
+            return -errno;
+	}
+    return res;
 //	return -1;
 }
 
@@ -57,12 +82,14 @@ int kvfs_getattr_impl(const char *path, struct stat *statbuf)
 int kvfs_readlink_impl(const char *path, char *link, size_t size)
 {
 	int res = 0;
+	char fullpath[PATH_MAX];
 	log_msg("kvfs_readlink_impl(path=\"%s\", link=\"%s\", size=%d)\n", path, link, size);
-        res = readlink(path, link, size - 1);
-        if (res < 0)
-                return -errno;
-        link[res] = '\0';
-        return res;
+    kvfs_fullpath(fullpath, path);       
+    res = readlink(fullpath, link, size - 1);
+    if (res < 0)
+            return -errno;
+    link[res] = '\0';
+    return res;
 //	return -1;
 }
 
@@ -75,22 +102,25 @@ int kvfs_readlink_impl(const char *path, char *link, size_t size)
 int kvfs_mknod_impl(const char *path, mode_t mode, dev_t dev)
 {
 	int res = 0;
+	char fullpath[PATH_MAX];
+
 	log_msg("\nbb_mknod(path=\"%s\", mode=0%3o, dev=%lld)\n",
           path, mode, dev);
+    kvfs_fullpath(fullpath, path);   
 
         /* On Linux this could just be 'mknod(path, mode, rdev)' but this
            is more portable */
-        if (S_ISREG(mode)) {
-                res = open(path, O_CREAT | O_EXCL | O_WRONLY, mode);
-                if (res >= 0)
-                        res = close(res);
-        } else if (S_ISFIFO(mode))
-                res = mkfifo(path, mode);
-        else
-                res = mknod(path, mode, dev);
-        if (res < 0)
-                return -errno;
-        return res;
+    if (S_ISREG(mode)) {
+        res = open(fullpath, O_CREAT | O_EXCL | O_WRONLY, mode);
+        if (res >= 0)
+                res = close(res);
+    } else if (S_ISFIFO(mode))
+            res = mkfifo(fullpath, mode);
+    else
+            res = mknod(fullpath, mode, dev);
+    if (res < 0)
+        return -errno;
+    return res;
 
 //	return -1;
 }
@@ -99,12 +129,14 @@ int kvfs_mknod_impl(const char *path, mode_t mode, dev_t dev)
 int kvfs_mkdir_impl(const char *path, mode_t mode)
 {	
 	int res = 0;
+	char fullpath[PATH_MAX];
 	log_msg("\nbb_mkdir(path=\"%s\", mode=0%3o)\n",
             path, mode);
-        res = mkdir(path, mode);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fullpath, path);   
+    res = mkdir(fullpath, mode);
+    if (res < 0)
+        return -errno;
+    return res;
 //	r`eturn -1;
 }
 
@@ -112,12 +144,14 @@ int kvfs_mkdir_impl(const char *path, mode_t mode)
 int kvfs_unlink_impl(const char *path)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
 	log_msg("bb_unlink(path=\"%s\")\n",
             path);
-        res = unlink(path);
-        if (res < 0)
-                return -errno;
-        return res;	
+    kvfs_fullpath(fullpath, path);   
+    res = unlink(fullpath);
+    if (res < 0)
+            return -errno;
+    return res;	
 //    return -1;
 }
 
@@ -125,12 +159,14 @@ int kvfs_unlink_impl(const char *path)
 int kvfs_rmdir_impl(const char *path)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
 	log_msg("bb_rmdir(path=\"%s\")\n",
             path);
-        res = rmdir(path);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fullpath, path);   
+    res = rmdir(fullpath);
+    if (res < 0)
+        return -errno;
+    return res;
 //	 return -1;
 }
 
@@ -142,12 +178,15 @@ int kvfs_rmdir_impl(const char *path)
 int kvfs_symlink_impl(const char *path, const char *link)
 {
 	int res = 0;
+    char fulllink[PATH_MAX];
+
 	log_msg("\nbb_symlink(path=\"%s\", link=\"%s\")\n",
             path, link);
-        res = symlink(path, link);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fulllink, path);   
+    res = symlink(fulllink, link);
+    if (res < 0)
+        return -errno;
+    return res;
 //	return -1;
 }
 
@@ -156,13 +195,17 @@ int kvfs_symlink_impl(const char *path, const char *link)
 int kvfs_rename_impl(const char *path, const char *newpath)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
+    char fullnewpath[PATH_MAX];
+
 	log_msg("\nbb_rename(fpath=\"%s\", newpath=\"%s\")\n",
             path, newpath);
-        
-        res = rename(path, newpath);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fullpath, path);   
+    kvfs_fullpath(fullnewpath, newpath);       
+    res = rename(fullpath, fullnewpath);
+    if (res < 0)
+        return -errno;
+    return res;
 //    return -1;
 }
 
@@ -170,12 +213,17 @@ int kvfs_rename_impl(const char *path, const char *newpath)
 int kvfs_link_impl(const char *path, const char *newpath)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
+    char fullnewpath[PATH_MAX];
+
 	log_msg("\nbb_link(path=\"%s\", newpath=\"%s\")\n",
             path, newpath);
-        res = link(path, newpath);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fullpath, path);   
+    kvfs_fullpath(fullnewpath, path);   
+    res = link(fullpath, fullnewpath);
+    if (res < 0)
+            return -errno;
+    return res;
 //    return -1;
 }
 
@@ -183,12 +231,15 @@ int kvfs_link_impl(const char *path, const char *newpath)
 int kvfs_chmod_impl(const char *path, mode_t mode)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
+
 	log_msg("\nbb_chmod(fpath=\"%s\", mode=0%03o)\n",
             path, mode);
-        res = chmod(path, mode);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fullpath, path);   
+    res = chmod(fullpath, mode);
+    if (res < 0)
+        return -errno;
+    return res;
 //    return -1;
 }
 
@@ -196,12 +247,14 @@ int kvfs_chmod_impl(const char *path, mode_t mode)
 int kvfs_chown_impl(const char *path, uid_t uid, gid_t gid)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];    
 	log_msg("\nbb_chown(path=\"%s\", uid=%d, gid=%d)\n",
             path, uid, gid);
-        res = lchown(path, uid, gid);
-        if (res < 0)
-                return -errno;
-        return res;	
+    kvfs_fullpath(fullpath, path);   
+    res = chown(fullpath, uid, gid);
+    if (res < 0)
+        return -errno;
+    return res;	
 //   	return -1;
 }
 
@@ -209,12 +262,14 @@ int kvfs_chown_impl(const char *path, uid_t uid, gid_t gid)
 int kvfs_truncate_impl(const char *path, off_t newsize)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
 	log_msg("\nbb_truncate(path=\"%s\", newsize=%lld)\n",
             path, newsize);
-        res = truncate(path, newsize);
-        if (res < 0)
-                return -errno;
-        return res;
+    kvfs_fullpath(fullpath, path);   
+    res = truncate(fullpath, newsize);
+    if (res < 0)
+        return -errno;
+    return res;
 //    return -1;
 }
 
@@ -223,9 +278,12 @@ int kvfs_truncate_impl(const char *path, off_t newsize)
 int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
+
 	log_msg("\nbb_utime(path=\"%s\", ubuf=0x%08x)\n",
             path, ubuf);
-	res = utime(path, ubuf);
+    kvfs_fullpath(fullpath, path);   
+	res = utime(fullpath, ubuf);
 	if(res < 0)
 		return -errno;
 	return res;
@@ -245,15 +303,19 @@ int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
 int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
 	int fd;
+
 	log_msg("\nbb_open(path\"%s\", fi=0x%08x)\n",
             path, fi);
-        fd = open(path, fi->flags);
-        if (fd < 0)
-                res = log_error("open");
-    	fi->fh = fd;
+    kvfs_fullpath(fullpath, path);   
+
+    fd = open(fullpath, fi->flags);
+    if (fd < 0)
+        res = log_error("open");
+	fi->fh = fd;
 	log_fi(fi);
-        return res;
+    return res;
 //    return -1;
 }
 
@@ -275,7 +337,7 @@ int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 // returned by read.
 int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-        int res = 0;
+    int res = 0;
 	log_msg("\nbb_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
             path, buf, size, offset, fi);
 	log_fi(fi);
@@ -320,13 +382,16 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 int kvfs_statfs_impl(const char *path, struct statvfs *statv)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
+
 	log_msg("\nbb_statfs(path=\"%s\", statv=0x%08x)\n",
             path, statv);
-        res = statvfs(path, statv);
-        if (res < 0)
-                return -errno;
+    kvfs_fullpath(fullpath, path);   
+    res = statvfs(fullpath, statv);
+    if (res < 0)
+        return -errno;
 	log_statvfs(statv);
-        return res;
+    return res;
 //    return -1;
 }
 
@@ -425,13 +490,15 @@ int kvfs_fsync_impl(const char *path, int datasync, struct fuse_file_info *fi)
 int kvfs_setxattr_impl(const char *path, const char *name, const char *value, size_t size, int flags)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
+
 	log_msg("\nbb_setxattr(path=\"%s\", name=\"%s\", value=\"%s\", size=%d, flags=0x%08x)\n",
             path, name, value, size, flags);
 	
-	res = lsetxattr(fpath, name, value, size, flags);
+    kvfs_fullpath(fullpath, path);   
+	res = lsetxattr(fullpath, name, value, size, flags);
 	if(res < 0)
-		return --errno;
-	
+		return --errno;	
 	return res;
 //    return -1;
 }
@@ -440,10 +507,14 @@ int kvfs_setxattr_impl(const char *path, const char *name, const char *value, si
 int kvfs_getxattr_impl(const char *path, const char *name, char *value, size_t size)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
+
 	log_msg("\nbb_getxattr(path = \"%s\", name = \"%s\", value = 0x%08x, size = %d)\n",
             path, name, value, size);
+
+    kvfs_fullpath(fullpath, path);   
 	
-	res = lgetxattr(fpath, name, value, size);	
+	res = lgetxattr(fullpath, name, value, size);	
 	if(res >= 0)
         	log_msg("    value = \"%s\"\n", value);
 
@@ -455,16 +526,18 @@ int kvfs_getxattr_impl(const char *path, const char *name, char *value, size_t s
 int kvfs_listxattr_impl(const char *path, char *list, size_t size)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
 	char* ptr;
 
 	log_msg("bb_listxattr(path=\"%s\", list=0x%08x, size=%d)\n",
             path, list, size);
-	
-	res = llistxattr(path, list, size);
+
+    kvfs_fullpath(fullpath, path);   
+	res = llistxattr(fullpath, list, size);
 	if (res >= 0) {
-	        log_msg("    returned attributes (length %d):\n", res);
-	        for (ptr = list; ptr < list + res; ptr += strlen(ptr)+1)
-	            log_msg("    \"%s\"\n", ptr);
+        log_msg("    returned attributes (length %d):\n", res);
+        for (ptr = list; ptr < list + res; ptr += strlen(ptr)+1)
+            log_msg("    \"%s\"\n", ptr);
 	 }
 
 	return res;
@@ -477,10 +550,12 @@ int kvfs_listxattr_impl(const char *path, char *list, size_t size)
 int kvfs_removexattr_impl(const char *path, const char *name)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
 	log_msg("\nbb_removexattr(path=\"%s\", name=\"%s\")\n",
             path, name);
-	
-	res = lremovexattr(path, name);
+
+    kvfs_fullpath(fullpath, path);   	
+	res = lremovexattr(fullpath, name);
 	if(res < 0)
 		return -errno;
 	
@@ -500,11 +575,13 @@ int kvfs_opendir_impl(const char *path, struct fuse_file_info *fi)
 {
 	DIR *dp;
 	int res = 0;
+    char fullpath[PATH_MAX];
 	
 	log_msg("\nbb_opendir(path=\"%s\", fi=0x%08x)\n",
 	    path, fi);
-	
-	dp = opendir(path);
+
+    kvfs_fullpath(fullpath, path);   	
+	dp = opendir(fullpath);
 	log_msg("    opendir returned 0x%p\n", dp);
 	if (dp == NULL)
 		res = log_error("bb_opendir opendir");
@@ -558,11 +635,11 @@ int kvfs_readdir_impl(const char *path, void *buf, fuse_fill_dir_t filler, off_t
    	}
 
 	do {
-        	log_msg("calling filler with name %s\n", de->d_name);
-       		if (filler(buf, de->d_name, NULL, 0) != 0) {
-        		log_msg("    ERROR bb_readdir filler:  buffer full");
-           		return -ENOMEM;
-        	}
+    	log_msg("calling filler with name %s\n", de->d_name);
+   		if (filler(buf, de->d_name, NULL, 0) != 0) {
+    		log_msg("    ERROR bb_readdir filler:  buffer full");
+       		return -ENOMEM;
+	   }
 	} while ((de = readdir(dp)) != NULL);
 
    	log_fi(fi);
@@ -607,23 +684,25 @@ int kvfs_fsyncdir_impl(const char *path, int datasync, struct fuse_file_info *fi
             path, datasync, fi);
    	log_fi(fi);
 
-    	return res;
+	return res;
 //    return -1;
 }
 
 int kvfs_access_impl(const char *path, int mask)
 {
 	int res = 0;
+    char fullpath[PATH_MAX];
 
 	log_msg("\nbb_access(path=\"%s\", mask=0%o)\n",
             path, mask);
+    kvfs_fullpath(fullpath, path);   
 
-	res = access(path, mask);
+	res = access(fullpath, mask);
 
 	if (res < 0)
 		res = log_error("bb_access access");
 
-    	return res;
+	return res;
 //    return -1;
 }
 
@@ -657,15 +736,15 @@ int kvfs_access_impl(const char *path, int mask)
 int kvfs_ftruncate_impl(const char *path, off_t offset, struct fuse_file_info *fi)
 {
 	int res = 0;
-    	log_msg("\nbb_ftruncate(path=\"%s\", offset=%lld, fi=0x%08x)\n",
-            path, offset, fi);
-    	log_fi(fi);
+	log_msg("\nbb_ftruncate(path=\"%s\", offset=%lld, fi=0x%08x)\n",
+        path, offset, fi);
+	log_fi(fi);
 
-    	res = ftruncate(fi->fh, offset);
-    	if (res < 0)
-        	res = log_error("bb_ftruncate ftruncate");
+	res = ftruncate(fi->fh, offset);
+	if (res < 0)
+    	res = log_error("bb_ftruncate ftruncate");
 
-    	return res;
+	return res;
 //    return -1;
 }
 
@@ -685,27 +764,24 @@ int kvfs_fgetattr_impl(const char *path, struct stat *statbuf, struct fuse_file_
 {
 	int res = 0;
 
-    	log_msg("\nbb_fgetattr(path=\"%s\", statbuf=0x%08x, fi=0x%08x)\n",
-            path, statbuf, fi);
-    	log_fi(fi);
+	log_msg("\nbb_fgetattr(path=\"%s\", statbuf=0x%08x, fi=0x%08x)\n",
+        path, statbuf, fi);
+	log_fi(fi);
 
     // On FreeBSD, trying to do anything with the mountpoint ends up
     // opening it, and then using the FD for an fgetattr.  So in the
     // special case of a path of "/", I need to do a getattr on the
     // underlying root directory instead of doing the fgetattr().
-    	if (!strcmp(path, "/"))
-        	return kvfs_getattr_impl(path, statbuf);
+	if (!strcmp(path, "/"))
+    	return kvfs_getattr_impl(path, statbuf);
 
-    	res = fstat(fi->fh, statbuf);
-    	if (res < 0)
-        	res = log_error("bb_fgetattr fstat");
+	res = fstat(fi->fh, statbuf);
+	if (res < 0)
+    	res = log_error("bb_fgetattr fstat");
 
-    	log_stat(statbuf);
+	log_stat(statbuf);
 
-    	return res;
-
-
-
+	return res;
 //    return -1;
 }
 
