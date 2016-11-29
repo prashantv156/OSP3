@@ -271,46 +271,54 @@ int kvfs_link_impl(const char *path, const char *newpath)
 int kvfs_chmod_impl(const char *path, mode_t mode)
 {
 	int result = 0;
-    char fullpath[PATH_MAX];
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
+	
+	log_msg("\nkvfs_chmod(fpath=\"%s\", mode=0%03o)\n", path, mode);
 
-	log_msg("\nkvfs_chmod(fpath=\"%s\", mode=0%03o)\n",
-            path, mode);
-    kvfs_fullpath(fullpath, path);   
-    result = chmod(fullpath, mode);
-    if (result < 0)
-        return -errno;
-    return result;
-//    return -1;
+	result = chmod(fullpath, mode);
+	if (result < 0)
+	{
+		log_msg("Error in chmod");
+		return -errno;
+	}
+	return result;
 }
 
 /** Change the owner and group of a file */
 int kvfs_chown_impl(const char *path, uid_t uid, gid_t gid)
 {
 	int result = 0;
-    char fullpath[PATH_MAX];    
-	log_msg("\nkvfs_chown(path=\"%s\", uid=%d, gid=%d)\n",
-            path, uid, gid);
-    kvfs_fullpath(fullpath, path);   
-    result = chown(fullpath, uid, gid);
-    if (result < 0)
-        return -errno;
-    return result;	
-//   	return -1;
+	char fullpath[PATH_MAX];    
+	kvfs_fullpath(fullpath, path);   
+	log_msg("\nkvfs_chown(path=\"%s\", uid=%d, gid=%d)\n", path, uid, gid);
+	
+	result = chown(fullpath, uid, gid);
+	
+	if (result < 0)
+	{
+		log_msg("Error in chown");
+		return -errno;
+	}
+	return result;	
 }
 
 /** Change the size of a file */
 int kvfs_truncate_impl(const char *path, off_t newsize)
 {
 	int result = 0;
-    char fullpath[PATH_MAX];
-	log_msg("\nkvfs_truncate(path=\"%s\", newsize=%lld)\n",
-            path, newsize);
-    kvfs_fullpath(fullpath, path);   
-    result = truncate(fullpath, newsize);
-    if (result < 0)
-        return -errno;
-    return result;
-//    return -1;
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
+	log_msg("\nkvfs_truncate_impl(path=\"%s\", newsize=%lld)\n", path, newsize);
+
+	result = truncate(fullpath, newsize);
+	
+	if (result < 0)
+	{
+		log_msg(" Error in truncate");
+		return -errno;
+	}
+	return result;
 }
 
 /** Change the access and/or modification times of a file */
@@ -318,16 +326,18 @@ int kvfs_truncate_impl(const char *path, off_t newsize)
 int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
 {
 	int result = 0;
-    char fullpath[PATH_MAX];
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
 
-	log_msg("\nkvfs_utime(path=\"%s\", ubuf=0x%08x)\n",
-            path, ubuf);
-    kvfs_fullpath(fullpath, path);   
+	log_msg("\nkvfs_utime(path=\"%s\", ubuf=0x%08x)\n", path, ubuf);
+
 	result = utime(fullpath, ubuf);
 	if(result < 0)
+	{
+		log_msg("Error in utime!");
 		return -errno;
+	}
 	return result;
-//    return -1;
 }
 
 /** File open operation
@@ -342,21 +352,25 @@ int kvfs_utime_impl(const char *path, struct utimbuf *ubuf)
  */
 int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 {
-	int result = 0;
-    char fullpath[PATH_MAX];
 	int fd;
+	int result = 0;
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
 
-	log_msg("\nkvfs_open(path\"%s\", fi=0x%08x)\n",
-            path, fi);
-    kvfs_fullpath(fullpath, path);   
+	log_msg("\nkvfs_open(path\"%s\", fi=0x%08x)\n", path, fi);
 
-    fd = open(fullpath, fi->flags);
-    if (fd < 0)
-        result = log_error("open");
+	fd = open(fullpath, fi->flags);
+
 	fi->fh = fd;
 	log_fi(fi);
-    return result;
-//    return -1;
+
+	if (fd < 0)
+	{
+		log_msg("Error in open");
+		return -errno;
+	}
+
+	return result;
 }
 
 /** Read data from an open file
@@ -377,15 +391,16 @@ int kvfs_open_impl(const char *path, struct fuse_file_info *fi)
 // returned by read.
 int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
-    int result = 0;
-	log_msg("\nkvfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
-            path, buf, size, offset, fi);
+	int result = 0;
+	log_msg("\nkvfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
+
 	log_fi(fi);
-        result = pread(fi->fh, buf, size, offset);
+        result = pread(O_RDONLY, buf, size, offset);
         if (result < 0)
-                result = -errno;
+	{
+		result = -errno;
+	}
         return result;
-//    return -1;
 }
 
 /** Write data to an open file
@@ -402,14 +417,14 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 	     struct fuse_file_info *fi)
 {
 	int result = 0;
-        log_msg("\nkvfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n",
-            path, buf, size, offset, fi);
+        log_msg("\nkvfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
         log_fi(fi);
-        result = pwrite(fi->fh, buf, size, offset);
+        result = pwrite(O_WRONLY, buf, size, offset);
         if (result < 0)
-                return -errno;
+	{
+		return -errno;
+	}
         return result;	
-//    return -1;
 }
 
 /** Get file system statistics
@@ -422,17 +437,20 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 int kvfs_statfs_impl(const char *path, struct statvfs *statv)
 {
 	int result = 0;
-    char fullpath[PATH_MAX];
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
+	
+	log_msg("\nkvfs_statfs(path=\"%s\", statv=0x%08x)\n", path, statv);
 
-	log_msg("\nkvfs_statfs(path=\"%s\", statv=0x%08x)\n",
-            path, statv);
-    kvfs_fullpath(fullpath, path);   
-    result = statvfs(fullpath, statv);
-    if (result < 0)
-        return -errno;
+	result = statvfs(fullpath, statv);
+	if (result < 0)
+	{
+		return -errno;
+	}
+
 	log_statvfs(statv);
-    return result;
-//    return -1;
+	
+	return result;
 }
 
 /** Possibly flush cached data
@@ -462,7 +480,6 @@ int kvfs_statfs_impl(const char *path, struct statvfs *statv)
 int kvfs_flush_impl(const char *path, struct fuse_file_info *fi)
 {
     log_msg("\nkvfs_flush(path=\"%s\", fi=0x%08x)\n", path, fi);
-    // no need to get fpath on this one, since I work from fi->fh not the path
     log_fi(fi);
 	
     return 0;
@@ -485,15 +502,18 @@ int kvfs_flush_impl(const char *path, struct fuse_file_info *fi)
 int kvfs_release_impl(const char *path, struct fuse_file_info *fi)
 {
 	int result = 0;
-	log_msg("\nkvfs_release(path=\"%s\", fi=0x%08x)\n",
-          path, fi);
+	log_msg("\nkvfs_release(path=\"%s\", fi=0x%08x)\n", path, fi);
+
 	log_fi(fi);
+
 	result = close(fi->fh);
+
 	if(result < 0)
+	{
 		return --errno;
+	}
 
 	return result;	
-//    return -1;
 }
 
 /** Synchronize file contents
@@ -506,23 +526,28 @@ int kvfs_release_impl(const char *path, struct fuse_file_info *fi)
 int kvfs_fsync_impl(const char *path, int datasync, struct fuse_file_info *fi)
 {
 	int result = 0;
-	log_msg("\nkvfs_fsync(path=\"%s\", datasync=%d, fi=0x%08x)\n",
-            path, datasync, fi);
+	log_msg("\nkvfs_fsync(path=\"%s\", datasync=%d, fi=0x%08x)\n", path, datasync, fi);
 	log_fi(fi);
+
 	#ifdef HAVE_FDATASYNC
-   	if (datasync){
+   	if (datasync)
+	{
 		result = fdatasync(fi->fh);
 		if(result < 0)
+		{
 			return -errno;
+		}
 	}  
-   	else {
+   	else 
+	{
 		result = fsync(fi->fh);
 		if(result < 0)
+		{
 			return -errno;
+		}
 	}
 	#endif
         return result;
-//    return -1;
 }
 
 #ifdef HAVE_SYS_XATTR_H
@@ -530,55 +555,56 @@ int kvfs_fsync_impl(const char *path, int datasync, struct fuse_file_info *fi)
 int kvfs_setxattr_impl(const char *path, const char *name, const char *value, size_t size, int flags)
 {
 	int result = 0;
-    char fullpath[PATH_MAX];
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
 
-	log_msg("\nkvfs_setxattr(path=\"%s\", name=\"%s\", value=\"%s\", size=%d, flags=0x%08x)\n",
-            path, name, value, size, flags);
+	log_msg("kvfs_setxattr(path=\"%s\", name=\"%s\", value=\"%s\", size=%d, flags=0x%08x)\n", path, name, value, size, flags);
 	
-    kvfs_fullpath(fullpath, path);   
 	result = lsetxattr(fullpath, name, value, size, flags);
 	if(result < 0)
+	{
 		return --errno;	
+	}
 	return result;
-//    return -1;
 }
 
 /** Get extended attributes */
 int kvfs_getxattr_impl(const char *path, const char *name, char *value, size_t size)
 {
-	int result = 0;
-    char fullpath[PATH_MAX];
+	int result = 0;	
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
 
-	log_msg("\nkvfs_getxattr(path = \"%s\", name = \"%s\", value = 0x%08x, size = %d)\n",
-            path, name, value, size);
+	log_msg("kvfs_getxattr(path = \"%s\", name = \"%s\", value = 0x%08x, size = %d)\n", path, name, value, size);
 
-    kvfs_fullpath(fullpath, path);   
-	
 	result = lgetxattr(fullpath, name, value, size);	
 	if(result >= 0)
+	{
         	log_msg("    value = \"%s\"\n", value);
-
+	}
 	return result;
-//    return -1;
 }
 
 /** List extended attributes */
 int kvfs_listxattr_impl(const char *path, char *list, size_t size)
 {
-	int result = 0;
-    char fullpath[PATH_MAX];
 	char* ptr;
+	int result = 0;
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
 
-	log_msg("kvfs_listxattr(path=\"%s\", list=0x%08x, size=%d)\n",
-            path, list, size);
+	log_msg("kvfs_listxattr(path=\"%s\", list=0x%08x, size=%d)\n", path, list, size);
 
-    kvfs_fullpath(fullpath, path);   
 	result = llistxattr(fullpath, list, size);
-	if (result >= 0) {
-        log_msg("    returned attributes (length %d):\n", result);
-        for (ptr = list; ptr < list + result; ptr += strlen(ptr)+1)
-            log_msg("    \"%s\"\n", ptr);
-	 }
+
+	if (result >= 0) 
+	{
+        	log_msg("    returned attributes (length %d):\n", result);
+        	for (ptr = list; ptr < list + result; ptr += strlen(ptr)+1)
+		{  
+			log_msg("    \"%s\"\n", ptr);
+		}
+	}
 
 	return result;
 
@@ -590,17 +616,18 @@ int kvfs_listxattr_impl(const char *path, char *list, size_t size)
 int kvfs_removexattr_impl(const char *path, const char *name)
 {
 	int result = 0;
-    char fullpath[PATH_MAX];
-	log_msg("\nkvfs_removexattr(path=\"%s\", name=\"%s\")\n",
-            path, name);
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   	
 
-    kvfs_fullpath(fullpath, path);   	
+	log_msg("\nkvfs_removexattr(path=\"%s\", name=\"%s\")\n", path, name);
+
 	result = lremovexattr(fullpath, name);
+
 	if(result < 0)
+	{
 		return -errno;
-	
+	}
 	return result;
-//    return -1;
 }
 #endif
 
@@ -615,22 +642,23 @@ int kvfs_opendir_impl(const char *path, struct fuse_file_info *fi)
 {
 	DIR *dp;
 	int result = 0;
-    char fullpath[PATH_MAX];
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   	
 	
-	log_msg("\nkvfs_opendir(path=\"%s\", fi=0x%08x)\n",
-	    path, fi);
+	log_msg("\nkvfs_opendir(path=\"%s\", fi=0x%08x)\n", path, fi);
 
-    kvfs_fullpath(fullpath, path);   	
 	dp = opendir(fullpath);
 	log_msg("    opendir returned 0x%p\n", dp);
+
 	if (dp == NULL)
+	{
 		result = log_error("kvfs_opendir opendir");
+	}
 
 	fi->fh = (intptr_t) dp;
 	log_fi(fi);
-	return result;
 
-//    return -1;
+	return result;
 }
 
 /** Read directory
@@ -685,7 +713,6 @@ int kvfs_readdir_impl(const char *path, void *buf, fuse_fill_dir_t filler, off_t
    	log_fi(fi);
 
 	return result;
-//    return -1;
 }
 
 /** Release directory
@@ -704,7 +731,6 @@ int kvfs_releasedir_impl(const char *path, struct fuse_file_info *fi)
 
 	return result;
 
-//    return -1;
 }
 
 /** Synchronize directory contents
@@ -725,7 +751,6 @@ int kvfs_fsyncdir_impl(const char *path, int datasync, struct fuse_file_info *fi
    	log_fi(fi);
 
 	return result;
-//    return -1;
 }
 
 int kvfs_access_impl(const char *path, int mask)
@@ -743,7 +768,6 @@ int kvfs_access_impl(const char *path, int mask)
 		result = log_error("kvfs_access access");
 
 	return result;
-//    return -1;
 }
 
 /**
@@ -785,7 +809,6 @@ int kvfs_ftruncate_impl(const char *path, off_t offset, struct fuse_file_info *f
     	result = log_error("kvfs_ftruncate ftruncate");
 
 	return result;
-//    return -1;
 }
 
 /**
@@ -822,6 +845,5 @@ int kvfs_fgetattr_impl(const char *path, struct stat *statbuf, struct fuse_file_
 	log_stat(statbuf);
 
 	return result;
-//    return -1;
 }
 
