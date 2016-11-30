@@ -16,6 +16,7 @@ export MOUNTDIR=/mnt/kvfs
 
 # Test1 File Creation
 touch $MOUNTDIR/hello.txt
+touch $MOUNTDIR/hello1.c
 filename=$(echo -n '/hello.txt' | md5sum)
 if ls $MOUNTDIR | grep -q $filename; then
 	echo File Creation: PASS
@@ -90,6 +91,20 @@ if ls $MOUNTDIR | grep -q $filename; then
 else
 	echo Link: FAIL
 fi
+
+# Test9.1 Symlink
+echo checking symbolic link:
+echo folder contents before ln -s
+ls $MOUNTDIR
+ln -s $MOUNTDIR/hello1.c $MOUNTDIR/hello12.c
+filename=$(echo -n '/hello12.c' | md5sum)
+if ls $MOUNTDIR | grep -q $filename; then
+	echo SYMBOLIC Link: PASS
+else
+	echo SYMBOLIC Link: FAIL
+fi
+echo folder contents after ln -s
+ls $MOUNTDIR
 
 # Test10 Rename
 mv $MOUNTDIR/hello.c $MOUNTDIR/bye.c

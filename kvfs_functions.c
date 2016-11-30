@@ -210,14 +210,17 @@ int kvfs_symlink_impl(const char *path, const char *link)
 {
 	int result = 0;
 	char fulllink[PATH_MAX];
-	kvfs_fullpath(fulllink, path);   
+	kvfs_fullpath(fulllink, link);   
+	char fullpath[PATH_MAX];
+	kvfs_fullpath(fullpath, path);   
 
-	log_msg("kvfs_symlink_impl(path=\"%s\", link=\"%s\")\n", path, link);
+	log_msg("kvfs_symlink_impl(path=\"%s\", link=\"%s\")\n", fullpath, fulllink);
 	
-	result = symlink(fulllink, link);
+	result = symlink(fullpath, fulllink);
 	if (result < 0)
 	{
-		log_msg("Error in symlink");
+		log_msg("Error in symlink\n");
+		log_msg("##################################################");
 		return -errno;
 	}
 	return result;
