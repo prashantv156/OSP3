@@ -395,7 +395,7 @@ int kvfs_read_impl(const char *path, char *buf, size_t size, off_t offset, struc
 	log_msg("\nkvfs_read(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
 
 	log_fi(fi);
-        result = pread(O_RDONLY, buf, size, offset);
+        result = pread(fi->fh, buf, size, offset);
         if (result < 0)
 	{
 		result = -errno;
@@ -419,7 +419,7 @@ int kvfs_write_impl(const char *path, const char *buf, size_t size, off_t offset
 	int result = 0;
         log_msg("\nkvfs_write(path=\"%s\", buf=0x%08x, size=%d, offset=%lld, fi=0x%08x)\n", path, buf, size, offset, fi);
         log_fi(fi);
-        result = pwrite(O_WRONLY, buf, size, offset);
+        result = pwrite(fi->fh, buf, size, offset);
         if (result < 0)
 	{
 		return -errno;
